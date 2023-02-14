@@ -43,59 +43,6 @@ def read_tile(orthomosaic, tile):
 
 
 
-class ExtractSaturatedPixelSegments():
-    def __init__(self):
-        self.pixels = []
-        self.segmented = {}
-        self.inliers = {}
-
-    def main(self, orthomosaic, tiles, tiles_to_process, segmentation_parameters):
-        for number in tiles_to_process:
-            tile = tiles[number]
-            tile_im = read_tile(orthomosaic, tile)
-            image_thresholded = np.zeros_like(tile_im[:, :, 0])
-            img_HLS = cv2.cvtColor(tile_im, cv2.COLOR_BGR2HLS)
-
-            tile_segments = slic(img_HLS[:, :, 2],
-                                 n_segments=segmentation_parameters[0],
-                                 compactness=segmentation_parameters[1])
-            self.segmented[str(number)] = tile_segments
-
-            threshold = np.median(img_HLS[:, :, 2])
-            std_image = np.std(img_HLS[:, :, 2])
-            seg_in = []
-
-            for i in range(0, np.max(tile_segments) + 1):
-                mask = np.zeros_like(tile_segments)
-                mask[tile_segments != i] = 1
-                img_temp = img_HLS.copy().astype(float)
-                img_temp[mask > 0] = float('nan')
-
-                to_compare = [np.nanmean(img_temp[:, :, 2]), np.nanstd(img_temp[:, :, 2])]
-                local_value = to_compare[0] - segmentation_parameters[2] * std_image
-
-                if local_value > threshold:
-                    seg_in.append(i)
-                    image_thresholded[mask == 0] = 1
-                    img_flat = np.reshape([img_temp], (-1, 3))
-                    object_pixels = np.delete(img_flat, np.where(np.reshape(mask, -1) > 0), axis=0)
-                    self.pixels.append(object_pixels)
-            self.inliers[str(number)] = seg_in
-
-        for i in range(0, len(self.pixels)):
-            if i == 0:
-                pixels_all = self.pixels[i]
-            else:
-                pixels_all = np.concatenate((pixels_all, self.pixels[i]), axis=0)
-
-        return pixels_all
-
-
-    
-
-
-
-
 
 
 # initial setup
@@ -209,6 +156,7 @@ class PumpkinCounter():
     def locate_pumpkins_in_orthomosaic(self, ortho):
         with rasterio.open(ortho) as src:
             self.resolution = np.round(src.res, 3)
+            self.resolution = src.res
             self.crs = src.crs
             self.left = src.bounds[0]
             self.top = src.bounds[3]
@@ -256,64 +204,29 @@ class PumpkinCounter():
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
-        pumpkins = []
-
         mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :], self.ref_color, self.ref_color_cov)
         mahal = mahalanobis_distance_image.copy() * 10
         mahal = mahal.astype(np.uint8)
 
-        _, segmented_image = cv2.threshold(mahalanobis_distance_image, self.thr_mahalanobis, 255, cv2.THRESH_BINARY)
+        width = tile.size[1]
+        height = tile.size[0]
 
-        segmented_median_blurred = cv2.medianBlur(segmented_image.astype(np.uint8), 5)
-
-        kernel = np.ones((3, 3), np.uint8)
-        dilated = cv2.morphologyEx(segmented_median_blurred, cv2.MORPH_ERODE, kernel)
-
-        # limit image to just boundaries and save it with georeference
-        temp_ulc_global = [tile.ulc_global[0] - tile.processing_range[0][0]*self.resolution[0],
-                           tile.ulc_global[1] + tile.processing_range[1][0]*self.resolution[0]]
-
-        width = tile.processing_range[1][1] - tile.processing_range[1][0]
-        height = tile.processing_range[0][1] - tile.processing_range[0][0]
-
-        transform = Affine.translation(temp_ulc_global[1] + self.resolution[0] / 2, temp_ulc_global[0] - self.resolution[0] / 2) * \
+        transform = Affine.translation(tile.ulc_global[1] + self.resolution[0] / 2, 
+                                       tile.ulc_global[0] - self.resolution[0] / 2) * \
                     Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_RGB, tile, tile_number, mahal, dilated, ortho, self.resolution, height, width, self.crs, transform)
+        self.save_results(img_RGB, tile, tile_number, mahal, ortho, self.resolution, height, width, self.crs, transform)
 
 
 
-    def save_results(self, img_RGB, tile, tile_number, mahal, dilated, ortho, res, height, width, crs, transform):
-        img_RGB = img_RGB[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
-                          int(tile.processing_range[1][0]):int(tile.processing_range[1][1]), :]
-        dilated = dilated[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
-                          int(tile.processing_range[1][0]):int(tile.processing_range[1][1])]
-        mahal = mahal[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
-                      int(tile.processing_range[1][0]):int(tile.processing_range[1][1])]
-
+    def save_results(self, img_RGB, tile, tile_number, mahal, ortho, res, height, width, crs, transform):
         name_annotated_image = ortho[:-4] + '/geo_tile_' + str(tile_number) + '.tiff'
-        name_segmentation_results = ortho[:-4] + '/geo_tile_seg_' + str(tile_number) + '.tiff'
         name_mahal_results = ortho[:-4] + '/mahal_tile_' + str(tile_number) + '.tiff'
 
         img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
         temp_to_save = img_to_save.transpose(2, 0, 1)
         new_dataset = rasterio.open(name_annotated_image,
-                                    'w',
-                                    driver='GTiff',
-                                    res=res,
-                                    height=height,
-                                    width=width,
-                                    count=3,
-                                    dtype=temp_to_save.dtype,
-                                    crs=crs,
-                                    transform=transform)
-        new_dataset.write(temp_to_save)
-        new_dataset.close()
-
-        img_to_save = cv2.merge((dilated, dilated, dilated))
-        temp_to_save = img_to_save.transpose(2, 0, 1)
-        new_dataset = rasterio.open(name_segmentation_results,
                                     'w',
                                     driver='GTiff',
                                     res=res,
@@ -340,8 +253,6 @@ class PumpkinCounter():
                                     transform=transform)
         new_dataset.write(temp_to_save)
         new_dataset.close()
-
-
 
 
 

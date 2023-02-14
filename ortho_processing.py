@@ -110,7 +110,7 @@ class PumpkinCounter():
 
         tiles = []
         for r in range(0, n_height):
-            for c in range(0, n_width - 1):
+            for c in range(0, n_width):
                 pos = [r, c]
                 if r == (n_height - 1):
                     tile_r = last_position[0]
@@ -205,7 +205,8 @@ class PumpkinCounter():
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
         mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :], self.ref_color, self.ref_color_cov)
-        mahal = mahalanobis_distance_image.copy() * 10
+        output_scale_factor = 5
+        mahal = mahalanobis_distance_image.copy() * output_scale_factor
         mahal = mahal.astype(np.uint8)
 
         width = tile.size[1]
@@ -239,15 +240,16 @@ class PumpkinCounter():
         new_dataset.write(temp_to_save)
         new_dataset.close()
 
-        img_to_save = cv2.merge((mahal, mahal, mahal))
-        temp_to_save = img_to_save.transpose(2, 0, 1)
+        img_to_save = mahal
+        temp_to_save = img_to_save.reshape(1, img_to_save.shape[0], img_to_save.shape[1])
+        # The ordering should be color channels, width and height.
         new_dataset = rasterio.open(name_mahal_results,
                                     'w',
                                     driver='GTiff',
                                     res=res,
                                     height=height,
                                     width=width,
-                                    count=3,
+                                    count=1,
                                     dtype=temp_to_save.dtype,
                                     crs=crs,
                                     transform=transform)

@@ -107,7 +107,7 @@ class PumpkinCounter():
         self.tile_size = 3000
         self.reference_color = None
         self.reference_color_covariance = None
-        self.thr_mahalanobis = 3
+        self.thr_mahalanobis = 5
 
 
     def main(self, orthos):
@@ -259,6 +259,8 @@ class PumpkinCounter():
         pumpkins = []
 
         mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :], self.ref_color, self.ref_color_cov)
+        mahal = mahalanobis_distance_image.copy() * 10
+        mahal = mahal.astype(np.uint8)
 
         _, segmented_image = cv2.threshold(mahalanobis_distance_image, self.thr_mahalanobis, 255, cv2.THRESH_BINARY)
 
@@ -268,7 +270,7 @@ class PumpkinCounter():
         dilated = cv2.morphologyEx(segmented_median_blurred, cv2.MORPH_ERODE, kernel)
 
         # limit image to just boundaries and save it with georeference
-        temp_ulc_global = [tile.ulc_global[0] - tile.processing_range[0][0] * self.resolution[0],
+        temp_ulc_global = [tile.ulc_global[0] - tile.processing_range[0][0]*self.resolution[0],
                            tile.ulc_global[1] + tile.processing_range[1][0]*self.resolution[0]]
 
         width = tile.processing_range[1][1] - tile.processing_range[1][0]
@@ -278,27 +280,23 @@ class PumpkinCounter():
                     Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_RGB, pumpkins, tile, tile_number, dilated, ortho, self.resolution, height, width, self.crs, transform)
+        self.save_results(img_RGB, tile, tile_number, mahal, dilated, ortho, self.resolution, height, width, self.crs, transform)
 
 
 
-    def save_results(self, img_RGB, pumpkins, tile, tile_number, dilated, ortho, res, height, width, crs, transform):
-        img_to_annotate = img_RGB.copy()
-        if len(pumpkins) > 0:
-            for pumpkin in pumpkins:
-                cX = pumpkin[0]
-                cY = pumpkin[1]
-                img_to_annotate = cv2.circle(img_to_annotate, (cX, cY), 10, (0, 0, 255), 2)
-
-        img_to_annotate = img_to_annotate[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
-                                          int(tile.processing_range[1][0]):int(tile.processing_range[1][1]), :]
+    def save_results(self, img_RGB, tile, tile_number, mahal, dilated, ortho, res, height, width, crs, transform):
+        img_RGB = img_RGB[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
+                          int(tile.processing_range[1][0]):int(tile.processing_range[1][1]), :]
         dilated = dilated[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
                           int(tile.processing_range[1][0]):int(tile.processing_range[1][1])]
+        mahal = mahal[int(tile.processing_range[0][0]):int(tile.processing_range[0][1]),
+                      int(tile.processing_range[1][0]):int(tile.processing_range[1][1])]
 
         name_annotated_image = ortho[:-4] + '/geo_tile_' + str(tile_number) + '.tiff'
         name_segmentation_results = ortho[:-4] + '/geo_tile_seg_' + str(tile_number) + '.tiff'
+        name_mahal_results = ortho[:-4] + '/mahal_tile_' + str(tile_number) + '.tiff'
 
-        img_to_save = cv2.cvtColor(img_to_annotate, cv2.COLOR_BGR2RGB)
+        img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
         temp_to_save = img_to_save.transpose(2, 0, 1)
         new_dataset = rasterio.open(name_annotated_image,
                                     'w',
@@ -312,9 +310,25 @@ class PumpkinCounter():
                                     transform=transform)
         new_dataset.write(temp_to_save)
         new_dataset.close()
+
         img_to_save = cv2.merge((dilated, dilated, dilated))
         temp_to_save = img_to_save.transpose(2, 0, 1)
         new_dataset = rasterio.open(name_segmentation_results,
+                                    'w',
+                                    driver='GTiff',
+                                    res=res,
+                                    height=height,
+                                    width=width,
+                                    count=3,
+                                    dtype=temp_to_save.dtype,
+                                    crs=crs,
+                                    transform=transform)
+        new_dataset.write(temp_to_save)
+        new_dataset.close()
+
+        img_to_save = cv2.merge((mahal, mahal, mahal))
+        temp_to_save = img_to_save.transpose(2, 0, 1)
+        new_dataset = rasterio.open(name_mahal_results,
                                     'w',
                                     driver='GTiff',
                                     res=res,

@@ -7,6 +7,8 @@ from skimage.segmentation import slic
 from rasterio.transform import Affine
 import time
 from icecream import ic
+import argparse
+from tqdm import tqdm
 
 # Initial code from Elzbieta Pastucha for counting pumpkins.
 
@@ -38,6 +40,9 @@ def read_tile(orthomosaic, tile):
 
 
 class ColorModel():
+    """
+    A multivariate normal distribution used to describe the color of a set of pixels.
+    """
     def __init__(self):
         self.average = None
         self.covariance = None
@@ -76,12 +81,12 @@ class ColorBasedSegmenter():
     def __init__(self):
         self.tile_size = 3000
         self.colormodel = ColorModel()
+        self.ref_image_filename = None
+        self.ref_image_annotated_filename = None
 
 
     def main(self, filename_orthomosaic):
-        ref_image_filename = "data/crop_from_orthomosaic.png"
-        ref_image_annotated_filename = "data/crop_from_orthomosaic_annotated.png"
-        self.initialize_color_model(ref_image_filename, ref_image_annotated_filename)
+        self.initialize_color_model(self.ref_image_filename, self.ref_image_annotated_filename)
         self.process_orthomosaic(filename_orthomosaic)
 
 
@@ -164,7 +169,7 @@ class ColorBasedSegmenter():
 
         processing_tiles = self.get_processing_tiles(filename_orthomosaic, self.tile_size)
 
-        for tile_number, tile in enumerate(processing_tiles):
+        for tile_number, tile in enumerate(tqdm(processing_tiles)):
             img_RGB = read_tile(filename_orthomosaic, tile)
             if self.is_image_empty(img_RGB):
                 continue
@@ -263,6 +268,19 @@ class ColorBasedSegmenter():
         new_dataset.close()
 
 
+parser = argparse.ArgumentParser(
+          prog = 'ColorBasedSegmeneter', 
+          description = 'A tool for calculating color distances in an orthomosaic to a reference color based on samples from an annotated image')
+parser.add_argument('orthomosaic', 
+                    help = 'Path to the orthomosaic that you want to process')
+parser.add_argument('reference', 
+                    help = 'Path to the reference image')
+parser.add_argument('annotated', 
+                    help = 'Path to the annotated reference image')
+args = parser.parse_args()
 
-pc = ColorBasedSegmenter()
-pc.main(orthos[0])
+
+cbs = ColorBasedSegmenter()
+cbs.ref_image_filename = args.reference
+cbs.ref_image_annotated_filename = args.annotated
+cbs.main(args.orthomosaic)

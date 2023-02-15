@@ -10,6 +10,7 @@ rasterio = "*"
 matplotlib = "*"
 scikit-image = "*"
 icecream = "*"
+tqdm = "*"
 
 [dev-packages]
 

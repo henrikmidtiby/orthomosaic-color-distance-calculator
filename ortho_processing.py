@@ -83,6 +83,8 @@ class ColorBasedSegmenter():
         self.colormodel = ColorModel()
         self.ref_image_filename = None
         self.ref_image_annotated_filename = None
+        self.mahal_tile_location = None
+        self.input_tile_location = None
 
 
     def main(self, filename_orthomosaic):
@@ -233,39 +235,40 @@ class ColorBasedSegmenter():
 
 
     def save_results(self, img_RGB, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
-        name_annotated_image = filename_orthomosaic[:-4] + '/geo_tile_' + str(tile_number) + '.tiff'
-        name_mahal_results = filename_orthomosaic[:-4] + '/mahal_tile_' + str(tile_number) + '.tiff'
+        if self.input_tile_location is not None:
+            name_annotated_image = f'{ self.input_tile_location }{ tile_number:04d}.tiff'
+            img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
+            temp_to_save = img_to_save.transpose(2, 0, 1)
+            new_dataset = rasterio.open(name_annotated_image,
+                                        'w',
+                                        driver='GTiff',
+                                        res=res,
+                                        height=height,
+                                        width=width,
+                                        count=3,
+                                        dtype=temp_to_save.dtype,
+                                        crs=crs,
+                                        transform=transform)
+            new_dataset.write(temp_to_save)
+            new_dataset.close()
 
-        img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
-        temp_to_save = img_to_save.transpose(2, 0, 1)
-        new_dataset = rasterio.open(name_annotated_image,
-                                    'w',
-                                    driver='GTiff',
-                                    res=res,
-                                    height=height,
-                                    width=width,
-                                    count=3,
-                                    dtype=temp_to_save.dtype,
-                                    crs=crs,
-                                    transform=transform)
-        new_dataset.write(temp_to_save)
-        new_dataset.close()
-
-        img_to_save = mahal
-        temp_to_save = img_to_save.reshape(1, img_to_save.shape[0], img_to_save.shape[1])
-        # The ordering should be color channels, width and height.
-        new_dataset = rasterio.open(name_mahal_results,
-                                    'w',
-                                    driver='GTiff',
-                                    res=res,
-                                    height=height,
-                                    width=width,
-                                    count=1,
-                                    dtype=temp_to_save.dtype,
-                                    crs=crs,
-                                    transform=transform)
-        new_dataset.write(temp_to_save)
-        new_dataset.close()
+        if self.mahal_tile_location is not None:
+            name_mahal_results = f'{ self.mahal_tile_location }{ tile_number:04d}.tiff'
+            img_to_save = mahal
+            temp_to_save = img_to_save.reshape(1, img_to_save.shape[0], img_to_save.shape[1])
+            # The ordering should be color channels, width and height.
+            new_dataset = rasterio.open(name_mahal_results,
+                                        'w',
+                                        driver='GTiff',
+                                        res=res,
+                                        height=height,
+                                        width=width,
+                                        count=1,
+                                        dtype=temp_to_save.dtype,
+                                        crs=crs,
+                                        transform=transform)
+            new_dataset.write(temp_to_save)
+            new_dataset.close()
 
 
 parser = argparse.ArgumentParser(
@@ -277,10 +280,18 @@ parser.add_argument('reference',
                     help = 'Path to the reference image')
 parser.add_argument('annotated', 
                     help = 'Path to the annotated reference image')
+parser.add_argument('--mahal_tile_location', 
+                    default = 'output/mahal', 
+                    help = 'The location in which to save the mahalanobis tiles.')
+parser.add_argument('--input_tile_location', 
+                    default = None, 
+                    help = 'The location in which to save the input tiles.')
 args = parser.parse_args()
 
 
 cbs = ColorBasedSegmenter()
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
+cbs.mahal_tile_location = args.mahal_tile_location
+cbs.input_tile_location = args.input_tile_location
 cbs.main(args.orthomosaic)

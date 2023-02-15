@@ -83,6 +83,7 @@ class ColorBasedSegmenter():
         self.colormodel = ColorModel()
         self.ref_image_filename = None
         self.ref_image_annotated_filename = None
+        self.output_scale_factor = None
         self.mahal_tile_location = None
         self.input_tile_location = None
 
@@ -218,8 +219,7 @@ class ColorBasedSegmenter():
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
         mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :])
-        output_scale_factor = 5
-        mahal = mahalanobis_distance_image.copy() * output_scale_factor
+        mahal = cv2.convertScaleAbs(mahalanobis_distance_image, alpha=self.output_scale_factor, beta = 0)
         mahal = mahal.astype(np.uint8)
 
         width = tile.size[1]
@@ -280,6 +280,10 @@ parser.add_argument('reference',
                     help = 'Path to the reference image')
 parser.add_argument('annotated', 
                     help = 'Path to the annotated reference image')
+parser.add_argument('--scale', 
+                    default = 5, 
+                    type = float, 
+                    help = 'The calculated distances are multiplied with this factor before the result is saved as an image. Default value is 5.')
 parser.add_argument('--mahal_tile_location', 
                     default = 'output/mahal', 
                     help = 'The location in which to save the mahalanobis tiles.')
@@ -292,6 +296,7 @@ args = parser.parse_args()
 cbs = ColorBasedSegmenter()
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
+cbs.output_scale_factor = args.scale
 cbs.mahal_tile_location = args.mahal_tile_location
 cbs.input_tile_location = args.input_tile_location
 cbs.main(args.orthomosaic)

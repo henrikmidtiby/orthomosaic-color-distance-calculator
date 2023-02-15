@@ -81,26 +81,30 @@ class ColorBasedSegmenter():
     def main(self, orthos):
         ref_image_filename = "data/crop_from_orthomosaic.png"
         ref_image_annotated_filename = "data/crop_from_orthomosaic_annotated.png"
+        self.initialize_color_model(ref_image_filename, ref_image_annotated_filename)
+
+        for filename_orthomosaic in orthos:
+            self.process_orthomosaic(filename_orthomosaic)
+
+
+    def initialize_color_model(self, ref_image_filename, ref_image_annotated_filename):
         self.colormodel.load_reference_image(ref_image_filename)
         self.colormodel.load_annotated_image(ref_image_annotated_filename)
         self.colormodel.generate_pixel_mask()
         self.colormodel.calculate_statistics()
         self.colormodel.show_statistics()
 
-        for ortho in orthos:
-            self.process_orthomosaic(ortho)
-          
 
-    def process_orthomosaic(self, ortho):
+    def process_orthomosaic(self, filename_orthomosaic):
         start_time = time.time()
-        self.locate_pumpkins_in_orthomosaic(ortho)
+        self.locate_pumpkins_in_orthomosaic(filename_orthomosaic)
         proc_time = time.time() - start_time
         print('segmentation, statistics and results generation: ', proc_time)
 
 
-    def define_tiles(self, image, overlap, height, width):
+    def define_tiles(self, filename_orthomosaic, overlap, height, width):
 
-        with rasterio.open(image) as src:
+        with rasterio.open(filename_orthomosaic) as src:
             columns = src.width
             rows = src.height
 
@@ -142,26 +146,25 @@ class ColorBasedSegmenter():
         return mahalanobis_distance_image_in_function
 
 
-    def locate_pumpkins_in_orthomosaic(self, ortho):
-        with rasterio.open(ortho) as src:
-            self.resolution = np.round(src.res, 3)
+    def locate_pumpkins_in_orthomosaic(self, filename_orthomosaic):
+        with rasterio.open(filename_orthomosaic) as src:
             self.resolution = src.res
             self.crs = src.crs
             self.left = src.bounds[0]
             self.top = src.bounds[3]
 
-        processing_tiles = self.get_processing_tiles(ortho, self.tile_size)
+        processing_tiles = self.get_processing_tiles(filename_orthomosaic, self.tile_size)
 
         for tile_number, tile in enumerate(processing_tiles):
-            img_RGB = read_tile(ortho, tile)
+            img_RGB = read_tile(filename_orthomosaic, tile)
             if self.is_image_empty(img_RGB):
                 continue
 
-            self.process_tile(ortho, img_RGB, tile_number, tile)
+            self.process_tile(filename_orthomosaic, img_RGB, tile_number, tile)
 
 
-    def get_processing_tiles(self, ortho, tile_size):
-        processing_tiles, st_width, st_height = self.define_tiles(ortho, 0.01, tile_size, tile_size)
+    def get_processing_tiles(self, filename_orthomosaic, tile_size):
+        processing_tiles, st_width, st_height = self.define_tiles(filename_orthomosaic, 0.01, tile_size, tile_size)
 
         no_r = np.max([t.tile_position[0] for t in processing_tiles])
         no_c = np.max([t.tile_position[1] for t in processing_tiles])
@@ -188,7 +191,7 @@ class ColorBasedSegmenter():
         return np.max(image[:, :, 0]) == np.min(image[:, :, 0])
 
 
-    def process_tile(self, ortho, img_RGB, tile_number, tile):
+    def process_tile(self, filename_orthomosaic, img_RGB, tile_number, tile):
         tile.ulc_global = [
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
@@ -207,13 +210,13 @@ class ColorBasedSegmenter():
                     Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_RGB, tile, tile_number, mahal, ortho, self.resolution, height, width, self.crs, transform)
+        self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic, self.resolution, height, width, self.crs, transform)
 
 
 
-    def save_results(self, img_RGB, tile, tile_number, mahal, ortho, res, height, width, crs, transform):
-        name_annotated_image = ortho[:-4] + '/geo_tile_' + str(tile_number) + '.tiff'
-        name_mahal_results = ortho[:-4] + '/mahal_tile_' + str(tile_number) + '.tiff'
+    def save_results(self, img_RGB, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
+        name_annotated_image = filename_orthomosaic[:-4] + '/geo_tile_' + str(tile_number) + '.tiff'
+        name_mahal_results = filename_orthomosaic[:-4] + '/mahal_tile_' + str(tile_number) + '.tiff'
 
         img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
         temp_to_save = img_to_save.transpose(2, 0, 1)

@@ -272,14 +272,14 @@ class ColorBasedSegmenter():
 
 
 parser = argparse.ArgumentParser(
-          prog = 'ColorBasedSegmeneter', 
-          description = 'A tool for calculating color distances in an orthomosaic to a reference color based on samples from an annotated image')
+          prog = 'ColorDistranceCalculatorForOrthomosaics', 
+          description = 'A tool for calculating color distances in an orthomosaic to a reference color based on samples from an annotated image.')
 parser.add_argument('orthomosaic', 
-                    help = 'Path to the orthomosaic that you want to process')
+                    help = 'Path to the orthomosaic that you want to process.')
 parser.add_argument('reference', 
-                    help = 'Path to the reference image')
+                    help = 'Path to the reference image.')
 parser.add_argument('annotated', 
-                    help = 'Path to the annotated reference image')
+                    help = 'Path to the annotated reference image.')
 parser.add_argument('--scale', 
                     default = 5, 
                     type = float, 

@@ -37,6 +37,34 @@ def read_tile(orthomosaic, tile):
     return rasterio_opencv2(im)
 
 
+class ColorModel():
+    def __init__(self):
+        self.average = None
+        self.covariance = None
+        self.reference_image = None
+
+    def load_reference_image(self, filename_reference_image):
+        self.reference_image = cv2.imread(filename_reference_image)
+
+    def load_annotated_image(self, filename_annotated_image):
+        self.annotated_image = cv2.imread(filename_annotated_image)
+
+    def generate_pixel_mask(self, lower_range = (0, 0, 245), higher_range = (10, 10, 256)):
+        self.pixel_mask = cv2.inRange(self.annotated_image, lower_range, higher_range)
+
+    def calculate_statistics(self):
+        pixels = np.reshape(self.reference_image, (-1, 3))
+        mask_pixels = np.reshape(self.pixel_mask, (-1))
+
+        # Using numpy to calculate mean and covariance matrix
+        self.covariance = np.cov(pixels.transpose(), aweights=mask_pixels)
+        self.average = np.average(pixels.transpose(), weights=mask_pixels, axis=1)
+
+    def show_statistics(self):
+        print("Average color value of annotated pixels")
+        print(self.average)
+        print("Covariance matrix of the annotated pixels")
+        print(self.covariance)
 
 
 
@@ -47,39 +75,20 @@ orthos = ['/home/hemi/Nextcloud/Shared/2023/2023-02-14 ScoutRobotics data/Orthom
 class ColorBasedSegmenter():
     def __init__(self):
         self.tile_size = 3000
-        self.reference_color = None
-        self.reference_color_covariance = None
-        self.thr_mahalanobis = 5
+        self.colormodel = ColorModel()
 
 
     def main(self, orthos):
         ref_image_filename = "data/crop_from_orthomosaic.png"
         ref_image_annotated_filename = "data/crop_from_orthomosaic_annotated.png"
-
-        self.ref_image = cv2.imread(ref_image_filename)
-        self.ref_image_annotated = cv2.imread(ref_image_annotated_filename)
-
-        self.ref_color, self.ref_color_cov = self.determine_colormodel_from_annotated_image(self.ref_image, self.ref_image_annotated)
+        self.colormodel.load_reference_image(ref_image_filename)
+        self.colormodel.load_annotated_image(ref_image_annotated_filename)
+        self.colormodel.generate_pixel_mask()
+        self.colormodel.calculate_statistics()
+        self.colormodel.show_statistics()
 
         for ortho in orthos:
             self.process_orthomosaic(ortho)
-
-
-    def determine_colormodel_from_annotated_image(self, ref_image, ref_image_annotated):
-        pixels = np.reshape(ref_image, (-1, 3))
-        mask = cv2.inRange(ref_image_annotated, (0, 0, 245), (10, 10, 256))
-        mask_pixels = np.reshape(mask, (-1))
-        cv2.imwrite('output/ex10_annotation_mask.jpg', mask)
-
-        # Using numpy to calculate mean and covariance matrix
-        cov = np.cov(pixels.transpose(), aweights=mask_pixels)
-        avg = np.average(pixels.transpose(), weights=mask_pixels, axis=1)
-        print("Average color value of annotated pixels")
-        print(avg)
-        print("Covariance matrix of the annotated pixels")
-        print(cov)
-
-        return avg, cov
           
 
     def process_orthomosaic(self, ortho):
@@ -184,7 +193,8 @@ class ColorBasedSegmenter():
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
-        mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :], self.ref_color, self.ref_color_cov)
+        mahalanobis_distance_image = self.calculate_mahalanobis_distance(
+            img_RGB[:, :, :], self.colormodel.average, self.colormodel.covariance)
         output_scale_factor = 5
         mahal = mahalanobis_distance_image.copy() * output_scale_factor
         mahal = mahal.astype(np.uint8)

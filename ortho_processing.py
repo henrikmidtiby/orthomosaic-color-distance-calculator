@@ -44,7 +44,7 @@ def read_tile(orthomosaic, tile):
 orthos = ['/home/hemi/Nextcloud/Shared/2023/2023-02-14 ScoutRobotics data/Orthomosaic-møn-mark3.tif']
 
 
-class PumpkinCounter():
+class ColorBasedSegmenter():
     def __init__(self):
         self.tile_size = 3000
         self.reference_color = None
@@ -238,5 +238,5 @@ class PumpkinCounter():
 
 
 
-pc = PumpkinCounter()
+pc = ColorBasedSegmenter()
 pc.main(orthos)

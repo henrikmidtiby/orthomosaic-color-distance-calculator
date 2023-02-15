@@ -78,13 +78,11 @@ class ColorBasedSegmenter():
         self.colormodel = ColorModel()
 
 
-    def main(self, orthos):
+    def main(self, filename_orthomosaic):
         ref_image_filename = "data/crop_from_orthomosaic.png"
         ref_image_annotated_filename = "data/crop_from_orthomosaic_annotated.png"
         self.initialize_color_model(ref_image_filename, ref_image_annotated_filename)
-
-        for filename_orthomosaic in orthos:
-            self.process_orthomosaic(filename_orthomosaic)
+        self.process_orthomosaic(filename_orthomosaic)
 
 
     def initialize_color_model(self, ref_image_filename, ref_image_annotated_filename):
@@ -97,12 +95,16 @@ class ColorBasedSegmenter():
 
     def process_orthomosaic(self, filename_orthomosaic):
         start_time = time.time()
-        self.locate_pumpkins_in_orthomosaic(filename_orthomosaic)
+        self.calculate_color_distances_in_orthomosaic(filename_orthomosaic)
         proc_time = time.time() - start_time
-        print('segmentation, statistics and results generation: ', proc_time)
+        print('Calculation of color distances: ', proc_time)
 
 
     def define_tiles(self, filename_orthomosaic, overlap, height, width):
+        """
+        Given a path to an orthomosaic, create a list of tiles which covers the
+        orthomosaic with a specified overlap, height and width.
+        """
 
         with rasterio.open(filename_orthomosaic) as src:
             columns = src.width
@@ -133,11 +135,14 @@ class ColorBasedSegmenter():
         return tiles, step_width, step_height
 
 
-
-    def calculate_mahalanobis_distance(self, image, reference_color, reference_color_covariance):
+    def calculate_mahalanobis_distance(self, image):
+        """
+        For all pixels in the image, calculate the Mahalanobis distance 
+        to the reference color.
+        """
         pixels = np.reshape(image, (-1, 3))
-        inv_cov = np.linalg.inv(reference_color_covariance)
-        diff = pixels - reference_color
+        inv_cov = np.linalg.inv(self.colormodel.covariance)
+        diff = pixels - self.colormodel.average
         moddotproduct = diff * (diff @ inv_cov)
         mahalanobis_dist = np.sum(moddotproduct, axis=1)
         mahalanobis_dist = np.sqrt(mahalanobis_dist)
@@ -146,7 +151,11 @@ class ColorBasedSegmenter():
         return mahalanobis_distance_image_in_function
 
 
-    def locate_pumpkins_in_orthomosaic(self, filename_orthomosaic):
+    def calculate_color_distances_in_orthomosaic(self, filename_orthomosaic):
+        """
+        For all pixels in the orthomosaic, calculate the Mahalanobis distance 
+        to the reference color.
+        """
         with rasterio.open(filename_orthomosaic) as src:
             self.resolution = src.res
             self.crs = src.crs
@@ -164,6 +173,10 @@ class ColorBasedSegmenter():
 
 
     def get_processing_tiles(self, filename_orthomosaic, tile_size):
+        """
+        Generate a list of tiles to process, including a padding region around the actual tile.
+        Takes care of edge cases, where the tile does not have adjacent tiles in all directions.
+        """
         processing_tiles, st_width, st_height = self.define_tiles(filename_orthomosaic, 0.01, tile_size, tile_size)
 
         no_r = np.max([t.tile_position[0] for t in processing_tiles])
@@ -188,6 +201,7 @@ class ColorBasedSegmenter():
 
 
     def is_image_empty(self, image):
+        """Helper function for deciding if an image contains no data."""
         return np.max(image[:, :, 0]) == np.min(image[:, :, 0])
 
 
@@ -196,8 +210,7 @@ class ColorBasedSegmenter():
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
-        mahalanobis_distance_image = self.calculate_mahalanobis_distance(
-            img_RGB[:, :, :], self.colormodel.average, self.colormodel.covariance)
+        mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :])
         output_scale_factor = 5
         mahal = mahalanobis_distance_image.copy() * output_scale_factor
         mahal = mahal.astype(np.uint8)
@@ -252,4 +265,4 @@ class ColorBasedSegmenter():
 
 
 pc = ColorBasedSegmenter()
-pc.main(orthos)
+pc.main(orthos[0])

@@ -284,6 +284,9 @@ parser.add_argument('--scale',
                     default = 5, 
                     type = float, 
                     help = 'The calculated distances are multiplied with this factor before the result is saved as an image. Default value is 5.')
+parser.add_argument('--tilesize', 
+                    default = 3000, 
+                    help = 'The height and width of tiles that are analyzed. Default is 3000.')
 parser.add_argument('--mahal_tile_location', 
                     default = 'output/mahal', 
                     help = 'The location in which to save the mahalanobis tiles.')
@@ -297,6 +300,7 @@ cbs = ColorBasedSegmenter()
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
 cbs.output_scale_factor = args.scale
+cbs.tile_size = args.tilesize
 cbs.mahal_tile_location = args.mahal_tile_location
 cbs.input_tile_location = args.input_tile_location
 cbs.main(args.orthomosaic)

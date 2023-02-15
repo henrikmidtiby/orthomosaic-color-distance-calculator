@@ -1,9 +1,7 @@
 import numpy as np
 import cv2
 import rasterio
-import random
 from rasterio.windows import Window
-from skimage.segmentation import slic
 from rasterio.transform import Affine
 import time
 from icecream import ic
@@ -71,10 +69,6 @@ class ColorModel():
         print("Covariance matrix of the annotated pixels")
         print(self.covariance)
 
-
-
-# initial setup
-orthos = ['/home/hemi/Nextcloud/Shared/2023/2023-02-14 ScoutRobotics data/Orthomosaic-møn-mark3.tif']
 
 
 class ColorBasedSegmenter():

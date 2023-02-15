@@ -18,11 +18,6 @@ class Tile:
         self.ulc = start_point
         self.ulc_global = []
         self.lrc = (start_point[0] + height, start_point[1] + width)
-        self.rows_range = width
-        self.columns_range = height
-        self.pumpkin_list = []
-        self.pumpkins_global = []
-        self.contours = []
         self.processing_range = [[0, 0], [0, 0]]
 
 
@@ -123,21 +118,6 @@ class PumpkinCounter():
                 tiles.append(Tile((tile_r, tile_c), pos, height, width))
 
         return tiles, step_width, step_height
-
-
-    def get_non_empty_tiles(self, orthomosaic, tiles, no_of_tiles):
-        number = len(tiles)
-        # find a set of random, non-empty tiles to establish reference
-        selected_tiles = []
-        while len(selected_tiles) < no_of_tiles:
-            possibility = random.randint(0, number-1)
-            if possibility not in selected_tiles:
-                tile = tiles[possibility]
-                tile_im = read_tile(orthomosaic, tile)
-                if np.median(tile_im[:, :, 0]) != 255:
-                    selected_tiles.append(possibility)
-
-        return selected_tiles
 
 
 

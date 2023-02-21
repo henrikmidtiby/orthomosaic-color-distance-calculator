@@ -7,6 +7,7 @@ import time
 from icecream import ic
 import argparse
 from tqdm import tqdm
+from sklearn import mixture
 
 # Initial code from Elzbieta Pastucha for counting pumpkins.
 
@@ -45,6 +46,7 @@ class ColorModel():
         self.average = None
         self.covariance = None
         self.reference_image = None
+        self.gmm = None
 
     def load_reference_image(self, filename_reference_image):
         self.reference_image = cv2.imread(filename_reference_image)
@@ -58,16 +60,23 @@ class ColorModel():
     def calculate_statistics(self):
         pixels = np.reshape(self.reference_image, (-1, 3))
         mask_pixels = np.reshape(self.pixel_mask, (-1))
+        annot_pix_values = pixels[mask_pixels == 255, ]
 
         # Using numpy to calculate mean and covariance matrix
         self.covariance = np.cov(pixels.transpose(), aweights=mask_pixels)
         self.average = np.average(pixels.transpose(), weights=mask_pixels, axis=1)
+
+        self.gmm = mixture.GaussianMixture(n_components = 2, covariance_type = "full")
+        self.gmm.fit(annot_pix_values)
+        
 
     def show_statistics(self):
         print("Average color value of annotated pixels")
         print(self.average)
         print("Covariance matrix of the annotated pixels")
         print(self.covariance)
+        print("GMM")
+        print(self.gmm)
 
 
 
@@ -148,6 +157,8 @@ class ColorBasedSegmenter():
         moddotproduct = diff * (diff @ inv_cov)
         mahalanobis_dist = np.sum(moddotproduct, axis=1)
         mahalanobis_dist = np.sqrt(mahalanobis_dist)
+
+        #mahalanobis_dist = self.colormodel.gmm.score_samples(pixels)
         mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
 
         return mahalanobis_distance_image_in_function

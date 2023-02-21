@@ -11,6 +11,7 @@ matplotlib = "*"
 scikit-image = "*"
 icecream = "*"
 tqdm = "*"
+scikit-learn = "*"
 
 [dev-packages]
 

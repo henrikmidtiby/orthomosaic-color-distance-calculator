@@ -79,8 +79,7 @@ class ColorModel():
         print(self.gmm)
 
 
-
-class ColorBasedSegmenter():
+class ColorBasedSegmenter:
     def __init__(self):
         self.tile_size = 3000
         self.colormodel = ColorModel()
@@ -90,11 +89,9 @@ class ColorBasedSegmenter():
         self.mahal_tile_location = None
         self.input_tile_location = None
 
-
     def main(self, filename_orthomosaic):
         self.initialize_color_model(self.ref_image_filename, self.ref_image_annotated_filename)
         self.process_orthomosaic(filename_orthomosaic)
-
 
     def initialize_color_model(self, ref_image_filename, ref_image_annotated_filename):
         self.colormodel.load_reference_image(ref_image_filename)
@@ -103,13 +100,11 @@ class ColorBasedSegmenter():
         self.colormodel.calculate_statistics()
         self.colormodel.show_statistics()
 
-
     def process_orthomosaic(self, filename_orthomosaic):
         start_time = time.time()
         self.calculate_color_distances_in_orthomosaic(filename_orthomosaic)
         proc_time = time.time() - start_time
         print('Calculation of color distances: ', proc_time)
-
 
     def define_tiles(self, filename_orthomosaic, overlap, height, width):
         """
@@ -145,7 +140,6 @@ class ColorBasedSegmenter():
 
         return tiles, step_width, step_height
 
-
     def calculate_mahalanobis_distance(self, image):
         """
         For all pixels in the image, calculate the Mahalanobis distance 
@@ -162,7 +156,6 @@ class ColorBasedSegmenter():
         mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
 
         return mahalanobis_distance_image_in_function
-
 
     def calculate_color_distances_in_orthomosaic(self, filename_orthomosaic):
         """
@@ -183,7 +176,6 @@ class ColorBasedSegmenter():
                 continue
 
             self.process_tile(filename_orthomosaic, img_RGB, tile_number, tile)
-
 
     def get_processing_tiles(self, filename_orthomosaic, tile_size):
         """
@@ -212,11 +204,9 @@ class ColorBasedSegmenter():
 
         return processing_tiles
 
-
     def is_image_empty(self, image):
         """Helper function for deciding if an image contains no data."""
         return np.max(image[:, :, 0]) == np.min(image[:, :, 0])
-
 
     def process_tile(self, filename_orthomosaic, img_RGB, tile_number, tile):
         tile.ulc_global = [
@@ -236,8 +226,6 @@ class ColorBasedSegmenter():
 
         # optional save of results - just lob detection and thresholding result
         self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic, self.resolution, height, width, self.crs, transform)
-
-
 
     def save_results(self, img_RGB, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
         if self.input_tile_location is not None:

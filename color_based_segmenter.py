@@ -242,7 +242,7 @@ class ColorBasedSegmenter:
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
         distance_image = self.colormodel.calculate_distance(img_RGB[:, :, :])
-        mahal = cv2.convertScaleAbs(distance_image, alpha=self.output_scale_factor, beta = 0)
+        mahal = cv2.convertScaleAbs(distance_image, alpha=self.output_scale_factor, beta=0)
         mahal = mahal.astype(np.uint8)
 
         width = tile.size[1]
@@ -293,28 +293,31 @@ class ColorBasedSegmenter:
 
 
 parser = argparse.ArgumentParser(
-          prog = 'ColorDistranceCalculatorForOrthomosaics', 
-          description = 'A tool for calculating color distances in an orthomosaic to a reference color based on samples from an annotated image.', 
-          epilog = 'Program written by Henrik Skov Midtiby (hemi@mmmi.sdu.dk) in 2023 as part of the Precisionseedbreeding project supported by GUDP and Frøafgiftsfonden.')
+          prog='ColorDistranceCalculatorForOrthomosaics',
+          description='A tool for calculating color distances in an orthomosaic to a reference color based on samples '
+                      'from an annotated image.',
+          epilog='Program written by Henrik Skov Midtiby (hemi@mmmi.sdu.dk) in 2023 as part of the '
+                 'Precisionseedbreeding project supported by GUDP and Frøafgiftsfonden.')
 parser.add_argument('orthomosaic', 
-                    help = 'Path to the orthomosaic that you want to process.')
+                    help='Path to the orthomosaic that you want to process.')
 parser.add_argument('reference', 
-                    help = 'Path to the reference image.')
+                    help='Path to the reference image.')
 parser.add_argument('annotated', 
-                    help = 'Path to the annotated reference image.')
+                    help='Path to the annotated reference image.')
 parser.add_argument('--scale', 
-                    default = 5, 
-                    type = float, 
-                    help = 'The calculated distances are multiplied with this factor before the result is saved as an image. Default value is 5.')
-parser.add_argument('--tilesize', 
-                    default = 3000, 
-                    help = 'The height and width of tiles that are analyzed. Default is 3000.')
+                    default=5,
+                    type=float,
+                    help='The calculated distances are multiplied with this factor before the result is saved as an '
+                         'image. Default value is 5.')
+parser.add_argument('--tile_size',
+                    default=3000,
+                    help='The height and width of tiles that are analyzed. Default is 3000.')
 parser.add_argument('--mahal_tile_location', 
-                    default = 'output/mahal', 
-                    help = 'The location in which to save the mahalanobis tiles.')
+                    default='output/mahal',
+                    help='The location in which to save the mahalanobis tiles.')
 parser.add_argument('--input_tile_location', 
-                    default = None, 
-                    help = 'The location in which to save the input tiles.')
+                    default=None,
+                    help='The location in which to save the input tiles.')
 args = parser.parse_args()
 
 
@@ -322,7 +325,7 @@ cbs = ColorBasedSegmenter()
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
 cbs.output_scale_factor = args.scale
-cbs.tile_size = args.tilesize
+cbs.tile_size = args.tile_size
 cbs.mahal_tile_location = args.mahal_tile_location
 cbs.input_tile_location = args.input_tile_location
 cbs.main(args.orthomosaic)

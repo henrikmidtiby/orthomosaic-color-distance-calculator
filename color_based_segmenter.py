@@ -51,7 +51,9 @@ class ReferencePixels:
     def load_annotated_image(self, filename_annotated_image):
         self.annotated_image = cv2.imread(filename_annotated_image)
 
-    def generate_pixel_mask(self, lower_range = (0, 0, 245), higher_range = (10, 10, 256)):
+    def generate_pixel_mask(self,
+                            lower_range=(0, 0, 245),
+                            higher_range=(10, 10, 256)):
         self.pixel_mask = cv2.inRange(self.annotated_image, lower_range, higher_range)
         pixels = np.reshape(self.reference_image, (-1, 3))
         mask_pixels = np.reshape(self.pixel_mask, (-1))
@@ -78,13 +80,13 @@ class MahalanobisDistance:
         pixels = np.reshape(image, (-1, 3))
         inv_cov = np.linalg.inv(self.covariance)
         diff = pixels - self.average
-        moddotproduct = diff * (diff @ inv_cov)
-        mahalanobis_dist = np.sum(moddotproduct, axis=1)
-        mahalanobis_dist = np.sqrt(mahalanobis_dist)
+        modified_dot_product = diff * (diff @ inv_cov)
+        distance = np.sum(modified_dot_product, axis=1)
+        distance = np.sqrt(distance)
 
-        mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
+        distance_image = np.reshape(distance, (image.shape[0], image.shape[1]))
 
-        return mahalanobis_distance_image_in_function
+        return distance_image
 
     def show_statistics(self):
         print("Average color value of annotated pixels")
@@ -98,29 +100,31 @@ class GaussianMixtureModelDistance:
         self.gmm = None
 
     def calculate_statistics(self, reference_pixels):
-        self.gmm = mixture.GaussianMixture(n_components = 2, covariance_type = "full")
+        self.gmm = mixture.GaussianMixture(n_components=2,
+                                           covariance_type="full")
         self.gmm.fit(reference_pixels)
 
     def calculate_distance(self, image):
         """
-        For all pixels in the image, calculate the Mahalanobis distance
-        to the reference color.
+        For all pixels in the image, calculate the distance to the
+        reference color modelled as a Gaussian Mixture Model.
         """
         pixels = np.reshape(image, (-1, 3))
-        mahalanobis_dist = self.gmm.score_samples(pixels)
-        mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
-
-        return mahalanobis_distance_image_in_function
+        distance = self.gmm.score_samples(pixels)
+        distance_image = np.reshape(distance, (image.shape[0], image.shape[1]))
+        return distance_image
 
     def show_statistics(self):
         print("GMM")
         print(self.gmm)
 
 
-
-
 class ColorBasedSegmenter:
     def __init__(self):
+        self.top = None
+        self.left = None
+        self.crs = None
+        self.resolution = None
         self.tile_size = 3000
         self.reference_pixels = ReferencePixels()
         self.colormodel = MahalanobisDistance()
@@ -195,11 +199,11 @@ class ColorBasedSegmenter:
         processing_tiles = self.get_processing_tiles(filename_orthomosaic, self.tile_size)
 
         for tile_number, tile in enumerate(tqdm(processing_tiles)):
-            img_RGB = read_tile(filename_orthomosaic, tile)
-            if self.is_image_empty(img_RGB):
+            img_rgb = read_tile(filename_orthomosaic, tile)
+            if self.is_image_empty(img_rgb):
                 continue
 
-            self.process_tile(filename_orthomosaic, img_RGB, tile_number, tile)
+            self.process_tile(filename_orthomosaic, img_rgb, tile_number, tile)
 
     def get_processing_tiles(self, filename_orthomosaic, tile_size):
         """
@@ -251,10 +255,10 @@ class ColorBasedSegmenter:
         # optional save of results - just lob detection and thresholding result
         self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic, self.resolution, height, width, self.crs, transform)
 
-    def save_results(self, img_RGB, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
+    def save_results(self, img_rgb, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
         if self.input_tile_location is not None:
             name_annotated_image = f'{ self.input_tile_location }{ tile_number:04d}.tiff'
-            img_to_save = cv2.cvtColor(img_RGB, cv2.COLOR_BGR2RGB)
+            img_to_save = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
             temp_to_save = img_to_save.transpose(2, 0, 1)
             new_dataset = rasterio.open(name_annotated_image,
                                         'w',

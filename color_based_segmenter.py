@@ -38,15 +38,12 @@ def read_tile(orthomosaic, tile):
     return rasterio_opencv2(im)
 
 
-class ColorModel():
-    """
-    A multivariate normal distribution used to describe the color of a set of pixels.
-    """
+class ReferencePixels:
     def __init__(self):
-        self.average = None
-        self.covariance = None
         self.reference_image = None
-        self.gmm = None
+        self.annotated_image = None
+        self.pixel_mask = None
+        self.values = None
 
     def load_reference_image(self, filename_reference_image):
         self.reference_image = cv2.imread(filename_reference_image)
@@ -56,33 +53,77 @@ class ColorModel():
 
     def generate_pixel_mask(self, lower_range = (0, 0, 245), higher_range = (10, 10, 256)):
         self.pixel_mask = cv2.inRange(self.annotated_image, lower_range, higher_range)
-
-    def calculate_statistics(self):
         pixels = np.reshape(self.reference_image, (-1, 3))
         mask_pixels = np.reshape(self.pixel_mask, (-1))
-        annot_pix_values = pixels[mask_pixels == 255, ]
+        self.values = pixels[mask_pixels == 255, ].transpose()
 
-        # Using numpy to calculate mean and covariance matrix
-        self.covariance = np.cov(pixels.transpose(), aweights=mask_pixels)
-        self.average = np.average(pixels.transpose(), weights=mask_pixels, axis=1)
 
-        self.gmm = mixture.GaussianMixture(n_components = 2, covariance_type = "full")
-        self.gmm.fit(annot_pix_values)
-        
+class MahalanobisDistance:
+    """
+    A multivariate normal distribution used to describe the color of a set of pixels.
+    """
+    def __init__(self):
+        self.average = None
+        self.covariance = None
+
+    def calculate_statistics(self, reference_pixels):
+        self.covariance = np.cov(reference_pixels)
+        self.average = np.average(reference_pixels, axis=1)
+
+    def calculate_distance(self, image):
+        """
+        For all pixels in the image, calculate the Mahalanobis distance
+        to the reference color.
+        """
+        pixels = np.reshape(image, (-1, 3))
+        inv_cov = np.linalg.inv(self.covariance)
+        diff = pixels - self.average
+        moddotproduct = diff * (diff @ inv_cov)
+        mahalanobis_dist = np.sum(moddotproduct, axis=1)
+        mahalanobis_dist = np.sqrt(mahalanobis_dist)
+
+        mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
+
+        return mahalanobis_distance_image_in_function
 
     def show_statistics(self):
         print("Average color value of annotated pixels")
         print(self.average)
         print("Covariance matrix of the annotated pixels")
         print(self.covariance)
+
+
+class GaussianMixtureModelDistance:
+    def __init__(self):
+        self.gmm = None
+
+    def calculate_statistics(self, reference_pixels):
+        self.gmm = mixture.GaussianMixture(n_components = 2, covariance_type = "full")
+        self.gmm.fit(reference_pixels)
+
+    def calculate_distance(self, image):
+        """
+        For all pixels in the image, calculate the Mahalanobis distance
+        to the reference color.
+        """
+        pixels = np.reshape(image, (-1, 3))
+        mahalanobis_dist = self.gmm.score_samples(pixels)
+        mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
+
+        return mahalanobis_distance_image_in_function
+
+    def show_statistics(self):
         print("GMM")
         print(self.gmm)
+
+
 
 
 class ColorBasedSegmenter:
     def __init__(self):
         self.tile_size = 3000
-        self.colormodel = ColorModel()
+        self.reference_pixels = ReferencePixels()
+        self.colormodel = MahalanobisDistance()
         self.ref_image_filename = None
         self.ref_image_annotated_filename = None
         self.output_scale_factor = None
@@ -94,10 +135,10 @@ class ColorBasedSegmenter:
         self.process_orthomosaic(filename_orthomosaic)
 
     def initialize_color_model(self, ref_image_filename, ref_image_annotated_filename):
-        self.colormodel.load_reference_image(ref_image_filename)
-        self.colormodel.load_annotated_image(ref_image_annotated_filename)
-        self.colormodel.generate_pixel_mask()
-        self.colormodel.calculate_statistics()
+        self.reference_pixels.load_reference_image(ref_image_filename)
+        self.reference_pixels.load_annotated_image(ref_image_annotated_filename)
+        self.reference_pixels.generate_pixel_mask()
+        self.colormodel.calculate_statistics(self.reference_pixels.values)
         self.colormodel.show_statistics()
 
     def process_orthomosaic(self, filename_orthomosaic):
@@ -139,23 +180,6 @@ class ColorBasedSegmenter:
                 tiles.append(Tile((tile_r, tile_c), pos, height, width))
 
         return tiles, step_width, step_height
-
-    def calculate_mahalanobis_distance(self, image):
-        """
-        For all pixels in the image, calculate the Mahalanobis distance 
-        to the reference color.
-        """
-        pixels = np.reshape(image, (-1, 3))
-        inv_cov = np.linalg.inv(self.colormodel.covariance)
-        diff = pixels - self.colormodel.average
-        moddotproduct = diff * (diff @ inv_cov)
-        mahalanobis_dist = np.sum(moddotproduct, axis=1)
-        mahalanobis_dist = np.sqrt(mahalanobis_dist)
-
-        #mahalanobis_dist = self.colormodel.gmm.score_samples(pixels)
-        mahalanobis_distance_image_in_function = np.reshape(mahalanobis_dist, (image.shape[0], image.shape[1]))
-
-        return mahalanobis_distance_image_in_function
 
     def calculate_color_distances_in_orthomosaic(self, filename_orthomosaic):
         """
@@ -213,8 +237,8 @@ class ColorBasedSegmenter:
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
-        mahalanobis_distance_image = self.calculate_mahalanobis_distance(img_RGB[:, :, :])
-        mahal = cv2.convertScaleAbs(mahalanobis_distance_image, alpha=self.output_scale_factor, beta = 0)
+        distance_image = self.colormodel.calculate_distance(img_RGB[:, :, :])
+        mahal = cv2.convertScaleAbs(distance_image, alpha=self.output_scale_factor, beta = 0)
         mahal = mahal.astype(np.uint8)
 
         width = tile.size[1]

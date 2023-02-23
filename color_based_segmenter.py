@@ -102,7 +102,7 @@ class GaussianMixtureModelDistance:
     def calculate_statistics(self, reference_pixels):
         self.gmm = mixture.GaussianMixture(n_components=2,
                                            covariance_type="full")
-        self.gmm.fit(reference_pixels)
+        self.gmm.fit(reference_pixels.transpose())
 
     def calculate_distance(self, image):
         """

@@ -117,6 +117,8 @@ class GaussianMixtureModelDistance:
     def show_statistics(self):
         print("GMM")
         print(self.gmm)
+        print(self.gmm.means_)
+        print(self.gmm.covariances_)
 
 
 class ColorBasedSegmenter:

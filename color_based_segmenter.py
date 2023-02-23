@@ -318,10 +318,18 @@ parser.add_argument('--mahal_tile_location',
 parser.add_argument('--input_tile_location', 
                     default=None,
                     help='The location in which to save the input tiles.')
+parser.add_argument('--method',
+                    default='mahalanobis',
+                    help='The method used for calculating distances from the set of annotated pixels. '
+                         'Possible values are \'mahalanobis\' for using the Mahalanobis distance and '
+                         '\'gmm\' for using a Gaussian Mixture Model.'
+                         '\'mahalanobis\' is the default value.')
 args = parser.parse_args()
 
 
 cbs = ColorBasedSegmenter()
+if args.method == 'gmm':
+    cbs.colormodel = GaussianMixtureModelDistance()
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
 cbs.output_scale_factor = args.scale

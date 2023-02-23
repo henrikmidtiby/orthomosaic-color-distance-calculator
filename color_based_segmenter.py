@@ -96,11 +96,12 @@ class MahalanobisDistance:
 
 
 class GaussianMixtureModelDistance:
-    def __init__(self):
+    def __init__(self, n_components):
         self.gmm = None
+        self.n_components = n_components
 
     def calculate_statistics(self, reference_pixels):
-        self.gmm = mixture.GaussianMixture(n_components=2,
+        self.gmm = mixture.GaussianMixture(n_components=self.n_components,
                                            covariance_type="full")
         self.gmm.fit(reference_pixels.transpose())
 
@@ -326,12 +327,18 @@ parser.add_argument('--method',
                          'Possible values are \'mahalanobis\' for using the Mahalanobis distance and '
                          '\'gmm\' for using a Gaussian Mixture Model.'
                          '\'mahalanobis\' is the default value.')
+parser.add_argument('--param',
+                    default=2,
+                    type=int,
+                    help='Numerical parameter for the color model. '
+                         'When using the \'gmm\' method, this equals the number of components in the Gaussian Mixture '
+                         'Model.')
 args = parser.parse_args()
 
 
 cbs = ColorBasedSegmenter()
 if args.method == 'gmm':
-    cbs.colormodel = GaussianMixtureModelDistance()
+    cbs.colormodel = GaussianMixtureModelDistance(args.param)
 cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
 cbs.output_scale_factor = args.scale

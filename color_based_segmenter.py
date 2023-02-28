@@ -279,12 +279,12 @@ class ColorBasedSegmenter:
         """Helper function for deciding if an image contains no data."""
         return np.max(image[:, :, 0]) == np.min(image[:, :, 0])
 
-    def process_tile(self, filename_orthomosaic, img_RGB, tile_number, tile):
+    def process_tile(self, filename_orthomosaic, img_rgb, tile_number, tile):
         tile.ulc_global = [
                 self.top - (tile.ulc[0] * self.resolution[0]), 
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
-        distance_image = self.colormodel.calculate_distance(img_RGB[:, :, :])
+        distance_image = self.colormodel.calculate_distance(img_rgb[:, :, :])
         mahal = cv2.convertScaleAbs(distance_image,
                                     alpha=self.output_scale_factor,
                                     beta=0)
@@ -293,12 +293,13 @@ class ColorBasedSegmenter:
         width = tile.size[1]
         height = tile.size[0]
 
-        transform = Affine.translation(tile.ulc_global[1] + self.resolution[0] / 2, 
-                                       tile.ulc_global[0] - self.resolution[0] / 2) * \
-                    Affine.scale(self.resolution[0], -self.resolution[0])
+        transform = Affine.translation(
+            tile.ulc_global[1] + self.resolution[0] / 2,
+            tile.ulc_global[0] - self.resolution[0] / 2) * \
+            Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic,
+        self.save_results(img_rgb, tile_number, mahal, filename_orthomosaic,
                           self.resolution, height, width, self.crs, transform)
 
     def save_results(self, img_rgb, tile_number, mahal, filename_orthomosaic,

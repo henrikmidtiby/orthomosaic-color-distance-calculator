@@ -39,8 +39,6 @@ import argparse
 from tqdm import tqdm
 from sklearn import mixture
 
-# Initial code from Elzbieta Pastucha for counting pumpkins.
-
 
 class Tile:
     def __init__(self, start_point, position, height, width):
@@ -56,9 +54,11 @@ def rasterio_opencv2(image):
     if image.shape[0] >= 3:  # might include alpha channel
         false_color_img = image.transpose(1, 2, 0)
         separate_colors = cv2.split(false_color_img)
-        return cv2.merge([separate_colors[2], separate_colors[1], separate_colors[0]])
+        return cv2.merge([separate_colors[2],
+                          separate_colors[1],
+                          separate_colors[0]])
     else:
-        return(image)
+        return image
 
 
 def read_tile(orthomosaic, tile):
@@ -84,7 +84,9 @@ class ReferencePixels:
     def generate_pixel_mask(self,
                             lower_range=(0, 0, 245),
                             higher_range=(10, 10, 256)):
-        self.pixel_mask = cv2.inRange(self.annotated_image, lower_range, higher_range)
+        self.pixel_mask = cv2.inRange(self.annotated_image,
+                                      lower_range,
+                                      higher_range)
         pixels = np.reshape(self.reference_image, (-1, 3))
         mask_pixels = np.reshape(self.pixel_mask, (-1))
         self.values = pixels[mask_pixels == 255, ].transpose()
@@ -92,7 +94,8 @@ class ReferencePixels:
 
 class MahalanobisDistance:
     """
-    A multivariate normal distribution used to describe the color of a set of pixels.
+    A multivariate normal distribution used to describe the color of a set of
+    pixels.
     """
     def __init__(self):
         self.average = None
@@ -168,10 +171,13 @@ class ColorBasedSegmenter:
         self.input_tile_location = None
 
     def main(self, filename_orthomosaic):
-        self.initialize_color_model(self.ref_image_filename, self.ref_image_annotated_filename)
+        self.initialize_color_model(self.ref_image_filename,
+                                    self.ref_image_annotated_filename)
         self.process_orthomosaic(filename_orthomosaic)
 
-    def initialize_color_model(self, ref_image_filename, ref_image_annotated_filename):
+    def initialize_color_model(self,
+                               ref_image_filename,
+                               ref_image_annotated_filename):
         self.reference_pixels.load_reference_image(ref_image_filename)
         self.reference_pixels.load_annotated_image(ref_image_annotated_filename)
         self.reference_pixels.generate_pixel_mask()
@@ -229,7 +235,8 @@ class ColorBasedSegmenter:
             self.left = src.bounds[0]
             self.top = src.bounds[3]
 
-        processing_tiles = self.get_processing_tiles(filename_orthomosaic, self.tile_size)
+        processing_tiles = self.get_processing_tiles(filename_orthomosaic,
+                                                     self.tile_size)
 
         for tile_number, tile in enumerate(tqdm(processing_tiles)):
             img_rgb = read_tile(filename_orthomosaic, tile)
@@ -240,10 +247,13 @@ class ColorBasedSegmenter:
 
     def get_processing_tiles(self, filename_orthomosaic, tile_size):
         """
-        Generate a list of tiles to process, including a padding region around the actual tile.
-        Takes care of edge cases, where the tile does not have adjacent tiles in all directions.
+        Generate a list of tiles to process, including a padding region around
+        the actual tile.
+        Takes care of edge cases, where the tile does not have adjacent tiles in
+        all directions.
         """
-        processing_tiles, st_width, st_height = self.define_tiles(filename_orthomosaic, 0.01, tile_size, tile_size)
+        processing_tiles, st_width, st_height = self.define_tiles(
+            filename_orthomosaic, 0.01, tile_size, tile_size)
 
         no_r = np.max([t.tile_position[0] for t in processing_tiles])
         no_c = np.max([t.tile_position[1] for t in processing_tiles])
@@ -275,7 +285,9 @@ class ColorBasedSegmenter:
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
         distance_image = self.colormodel.calculate_distance(img_RGB[:, :, :])
-        mahal = cv2.convertScaleAbs(distance_image, alpha=self.output_scale_factor, beta=0)
+        mahal = cv2.convertScaleAbs(distance_image,
+                                    alpha=self.output_scale_factor,
+                                    beta=0)
         mahal = mahal.astype(np.uint8)
 
         width = tile.size[1]
@@ -286,9 +298,11 @@ class ColorBasedSegmenter:
                     Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic, self.resolution, height, width, self.crs, transform)
+        self.save_results(img_RGB, tile_number, mahal, filename_orthomosaic,
+                          self.resolution, height, width, self.crs, transform)
 
-    def save_results(self, img_rgb, tile_number, mahal, filename_orthomosaic, res, height, width, crs, transform):
+    def save_results(self, img_rgb, tile_number, mahal, filename_orthomosaic,
+                     res, height, width, crs, transform):
         if self.input_tile_location is not None:
             name_annotated_image = f'{ self.input_tile_location }{ tile_number:04d}.tiff'
             img_to_save = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
@@ -309,7 +323,8 @@ class ColorBasedSegmenter:
         if self.mahal_tile_location is not None:
             name_mahal_results = f'{ self.mahal_tile_location }{ tile_number:04d}.tiff'
             img_to_save = mahal
-            temp_to_save = img_to_save.reshape(1, img_to_save.shape[0], img_to_save.shape[1])
+            temp_to_save = img_to_save.reshape(1, img_to_save.shape[0],
+                                               img_to_save.shape[1])
             # The ordering should be color channels, width and height.
             new_dataset = rasterio.open(name_mahal_results,
                                         'w',
@@ -327,10 +342,12 @@ class ColorBasedSegmenter:
 
 parser = argparse.ArgumentParser(
           prog='ColorDistranceCalculatorForOrthomosaics',
-          description='A tool for calculating color distances in an orthomosaic to a reference color based on samples '
-                      'from an annotated image.',
-          epilog='Program written by Henrik Skov Midtiby (hemi@mmmi.sdu.dk) in 2023 as part of the '
-                 'Precisionseedbreeding project supported by GUDP and Frøafgiftsfonden.')
+          description='A tool for calculating color distances in an '
+                      'orthomosaic to a reference color based on samples from '
+                      'an annotated image.',
+          epilog='Program written by Henrik Skov Midtiby (hemi@mmmi.sdu.dk) in '
+                 '2023 as part of the Precisionseedbreeding project supported '
+                 'by GUDP and Frøafgiftsfonden.')
 parser.add_argument('orthomosaic', 
                     help='Path to the orthomosaic that you want to process.')
 parser.add_argument('reference', 
@@ -340,11 +357,13 @@ parser.add_argument('annotated',
 parser.add_argument('--scale', 
                     default=5,
                     type=float,
-                    help='The calculated distances are multiplied with this factor before the result is saved as an '
-                         'image. Default value is 5.')
+                    help='The calculated distances are multiplied with this '
+                         'factor before the result is saved as an image. '
+                         'Default value is 5.')
 parser.add_argument('--tile_size',
                     default=3000,
-                    help='The height and width of tiles that are analyzed. Default is 3000.')
+                    help='The height and width of tiles that are analyzed. '
+                         'Default is 3000.')
 parser.add_argument('--mahal_tile_location', 
                     default='output/mahal',
                     help='The location in which to save the mahalanobis tiles.')
@@ -353,16 +372,18 @@ parser.add_argument('--input_tile_location',
                     help='The location in which to save the input tiles.')
 parser.add_argument('--method',
                     default='mahalanobis',
-                    help='The method used for calculating distances from the set of annotated pixels. '
-                         'Possible values are \'mahalanobis\' for using the Mahalanobis distance and '
+                    help='The method used for calculating distances from the '
+                         'set of annotated pixels. '
+                         'Possible values are \'mahalanobis\' for using the '
+                         'Mahalanobis distance and '
                          '\'gmm\' for using a Gaussian Mixture Model.'
                          '\'mahalanobis\' is the default value.')
 parser.add_argument('--param',
                     default=2,
                     type=int,
                     help='Numerical parameter for the color model. '
-                         'When using the \'gmm\' method, this equals the number of components in the Gaussian Mixture '
-                         'Model.')
+                         'When using the \'gmm\' method, this equals the '
+                         'number of components in the Gaussian Mixture Model.')
 args = parser.parse_args()
 
 

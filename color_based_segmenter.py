@@ -285,10 +285,10 @@ class ColorBasedSegmenter:
                 self.left + (tile.ulc[1] * self.resolution[1])]
 
         distance_image = self.colormodel.calculate_distance(img_rgb[:, :, :])
-        mahal = cv2.convertScaleAbs(distance_image,
-                                    alpha=self.output_scale_factor,
-                                    beta=0)
-        mahal = mahal.astype(np.uint8)
+        distance = cv2.convertScaleAbs(distance_image,
+                                       alpha=self.output_scale_factor,
+                                       beta=0)
+        distance = distance.astype(np.uint8)
 
         width = tile.size[1]
         height = tile.size[0]
@@ -299,10 +299,10 @@ class ColorBasedSegmenter:
             Affine.scale(self.resolution[0], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
-        self.save_results(img_rgb, tile_number, mahal, filename_orthomosaic,
+        self.save_results(img_rgb, tile_number, distance,
                           self.resolution, height, width, self.crs, transform)
 
-    def save_results(self, img_rgb, tile_number, mahal, filename_orthomosaic,
+    def save_results(self, img_rgb, tile_number, mahal,
                      res, height, width, crs, transform):
         if self.input_tile_location is not None:
             name_annotated_image = f'{ self.input_tile_location }{ tile_number:04d}.tiff'

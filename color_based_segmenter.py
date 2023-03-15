@@ -91,6 +91,11 @@ class ReferencePixels:
         mask_pixels = np.reshape(self.pixel_mask, (-1))
         self.values = pixels[mask_pixels == 255, ].transpose()
 
+    def show_statistics_of_pixel_mask(self):
+        print(f"Number of annotated pixels: { self.values.shape }")
+        if self.values.shape[1] < 100:
+            raise Exception("Not enough annotated pixels")
+
 
 class MahalanobisDistance:
     """
@@ -181,6 +186,7 @@ class ColorBasedSegmenter:
         self.reference_pixels.load_reference_image(ref_image_filename)
         self.reference_pixels.load_annotated_image(ref_image_annotated_filename)
         self.reference_pixels.generate_pixel_mask()
+        self.reference_pixels.show_statistics_of_pixel_mask()
         self.colormodel.calculate_statistics(self.reference_pixels.values)
         self.colormodel.show_statistics()
 

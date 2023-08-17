@@ -13,9 +13,11 @@ The dataset consist of the following files
 To learn the color distribution, the information from the **ccrop_from_orthomosaic.tif** file is combined with the annotations in the **crop_from_orthomosaic_annotated.tif** file. 
 
 The **crop_from_orthomosaic.tif** looks as follows: 
+
 ![Image](pumpkins_example/crop_from_orthomosaic.png)
 
 The **crop_from_orthomosaic_annotated.tif** looks as follows: 
+
 ![Image](pumpkins_example/crop_from_orthomosaic_annotated.png)
 
 Install the **Orthomosaic Color Distance Calculator** by running these commands on the command line.

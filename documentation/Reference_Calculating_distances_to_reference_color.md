@@ -11,8 +11,6 @@ The multivariate normal distribution is used to describe the distribution of col
 
 ## Calculating distance to the color model
 To calculate the color distance using the Mahalanobis distance, the following equation is used:
-$$
-\sqrt{\left( \vec{x} - \vec{\mu} \right)^T \cdot \Sigma^{-1} \cdot \left( \vec{x} - \vec{\mu} \right)}
-$$
+$$\sqrt{\left( \vec{x} - \vec{\mu} \right)^T \cdot \Sigma^{-1} \cdot \left( \vec{x} - \vec{\mu} \right)}$$
 where $\vec{x}$ is the new color value $\vec{x}$, $\vec{\mu}$ the mean color value and $\Sigma$ the covariance matrix.
 

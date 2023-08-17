@@ -100,7 +100,12 @@ class ReferencePixels:
 
     def save_pixel_values_to_file(self, filename):
         print(f"Writing pixel values to the file \"{ filename }\"")
-        np.savetxt(filename, self.values.transpose(), delimiter = '\t')
+        np.savetxt(filename, 
+                   self.values.transpose(), 
+                   delimiter = '\t', 
+                   fmt='%i', 
+                   header="b\tg\tr", 
+                   comments = "")
 
 
 class MahalanobisDistance:

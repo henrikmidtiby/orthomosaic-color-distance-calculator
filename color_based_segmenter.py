@@ -34,6 +34,7 @@ import rasterio
 from rasterio.windows import Window
 from rasterio.transform import Affine
 import time
+import os
 from icecream import ic
 import argparse
 from tqdm import tqdm
@@ -63,8 +64,9 @@ def rasterio_opencv2(image):
 
 def read_tile(orthomosaic, tile):
     with rasterio.open(orthomosaic) as src:
-        im = src.read(window=Window.from_slices((tile.ulc[0], tile.lrc[0]),
-                                                (tile.ulc[1], tile.lrc[1])))
+        window = Window.from_slices((tile.ulc[0], tile.lrc[0]),
+                                    (tile.ulc[1], tile.lrc[1]))
+        im = src.read(window=window)
     return rasterio_opencv2(im)
 
 
@@ -95,6 +97,10 @@ class ReferencePixels:
         print(f"Number of annotated pixels: { self.values.shape }")
         if self.values.shape[1] < 100:
             raise Exception("Not enough annotated pixels")
+
+    def save_pixel_values_to_file(self, filename):
+        print(f"Writing pixel values to the file \"{ filename }\"")
+        np.savetxt(filename, self.values.transpose(), delimiter = '\t')
 
 
 class MahalanobisDistance:
@@ -172,10 +178,13 @@ class ColorBasedSegmenter:
         self.ref_image_filename = None
         self.ref_image_annotated_filename = None
         self.output_scale_factor = None
-        self.mahal_tile_location = None
+        self.output_tile_location = None
         self.input_tile_location = None
 
     def main(self, filename_orthomosaic):
+        output_directory = os.path.dirname(self.output_tile_location)
+        if not os.path.isdir(output_directory):
+            os.makedirs(output_directory)
         self.initialize_color_model(self.ref_image_filename,
                                     self.ref_image_annotated_filename)
         self.process_orthomosaic(filename_orthomosaic)
@@ -187,6 +196,7 @@ class ColorBasedSegmenter:
         self.reference_pixels.load_annotated_image(ref_image_annotated_filename)
         self.reference_pixels.generate_pixel_mask()
         self.reference_pixels.show_statistics_of_pixel_mask()
+        self.reference_pixels.save_pixel_values_to_file("pixel_values.csv")
         self.colormodel.calculate_statistics(self.reference_pixels.values)
         self.colormodel.show_statistics()
 
@@ -194,7 +204,7 @@ class ColorBasedSegmenter:
         start_time = time.time()
         self.calculate_color_distances_in_orthomosaic(filename_orthomosaic)
         proc_time = time.time() - start_time
-        print('Calculation of color distances: ', proc_time)
+        # print('Calculation of color distances: ', proc_time)
 
     def define_tiles(self, filename_orthomosaic, overlap, height, width):
         """
@@ -299,6 +309,8 @@ class ColorBasedSegmenter:
         width = tile.size[1]
         height = tile.size[0]
 
+        # TODO: Check that a proper coordinate system has been used for the original orthomosaic (ie. UTM).
+        # Check the unit size of the coordinates of the upper left corners.
         transform = Affine.translation(
             tile.ulc_global[1] + self.resolution[0] / 2,
             tile.ulc_global[0] - self.resolution[0] / 2) * \
@@ -327,8 +339,8 @@ class ColorBasedSegmenter:
             new_dataset.write(temp_to_save)
             new_dataset.close()
 
-        if self.mahal_tile_location is not None:
-            name_mahal_results = f'{ self.mahal_tile_location }{ tile_number:04d}.tiff'
+        if self.output_tile_location is not None:
+            name_mahal_results = f'{ self.output_tile_location }{ tile_number:04d}.tiff'
             img_to_save = mahal
             temp_to_save = img_to_save.reshape(1, img_to_save.shape[0],
                                                img_to_save.shape[1])
@@ -371,7 +383,7 @@ parser.add_argument('--tile_size',
                     default=3000,
                     help='The height and width of tiles that are analyzed. '
                          'Default is 3000.')
-parser.add_argument('--mahal_tile_location', 
+parser.add_argument('--output_tile_location', 
                     default='output/mahal',
                     help='The location in which to save the mahalanobis tiles.')
 parser.add_argument('--input_tile_location', 
@@ -401,6 +413,6 @@ cbs.ref_image_filename = args.reference
 cbs.ref_image_annotated_filename = args.annotated
 cbs.output_scale_factor = args.scale
 cbs.tile_size = args.tile_size
-cbs.mahal_tile_location = args.mahal_tile_location
+cbs.output_tile_location = args.output_tile_location
 cbs.input_tile_location = args.input_tile_location
 cbs.main(args.orthomosaic)

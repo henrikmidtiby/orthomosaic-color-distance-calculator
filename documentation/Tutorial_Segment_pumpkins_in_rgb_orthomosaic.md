@@ -70,4 +70,4 @@ Here the values from the example have been plotted
 
 # Next step
 Read about the algorithm used for calculating the distance from all pixels in the orthomosaic to the reference color obtained from the annotation.
-* [Reference - Calculating distances to reference color](Reference - Calculating distances to reference color)
+* [Reference - Calculating distances to reference color](Reference_Calculating_distances_to_reference_color)

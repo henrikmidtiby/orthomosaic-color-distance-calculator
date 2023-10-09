@@ -251,7 +251,7 @@ class ColorBasedSegmenter:
         to the reference color.
         """
         with rasterio.open(filename_orthomosaic) as src:
-            self.resolution = src.res
+            self.resolution = (src.res[1], src.res[0])
             self.crs = src.crs
             self.left = src.bounds[0]
             self.top = src.bounds[3]
@@ -317,9 +317,9 @@ class ColorBasedSegmenter:
         # TODO: Check that a proper coordinate system has been used for the original orthomosaic (ie. UTM).
         # Check the unit size of the coordinates of the upper left corners.
         transform = Affine.translation(
-            tile.ulc_global[1] + self.resolution[0] / 2,
+            tile.ulc_global[1] + self.resolution[1] / 2,
             tile.ulc_global[0] - self.resolution[0] / 2) * \
-            Affine.scale(self.resolution[0], -self.resolution[0])
+            Affine.scale(self.resolution[1], -self.resolution[0])
 
         # optional save of results - just lob detection and thresholding result
         self.save_results(img_rgb, tile_number, distance,

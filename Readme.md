@@ -9,7 +9,7 @@ To this output image
 ![Image](documentation/pumpkins_example/color_distance_crop.png)
 
 To learn more about the tool, take a look at the tutorial.
-* [Tutorial - Segment pumpkins in RGB orthomosaic](Tutorial_Segment_pumpkins_in_rgb_orthomosaic.md)
+* [Tutorial - Segment pumpkins in RGB orthomosaic](documentation/Tutorial_Segment_pumpkins_in_rgb_orthomosaic.md)
 
 
 

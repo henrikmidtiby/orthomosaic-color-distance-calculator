@@ -187,15 +187,18 @@ class ColorBasedSegmenter:
         self.input_tile_location = None
 
     def main(self, filename_orthomosaic):
+        self.ensure_output_directories_exists()
+        self.initialize_color_model(self.ref_image_filename,
+                                    self.ref_image_annotated_filename)
+        self.process_orthomosaic(filename_orthomosaic)
+
+    def ensure_output_directories_exists(self):
         output_tile_directory = os.path.dirname(self.output_tile_location)
         input_tile_directory = os.path.dirname(self.input_tile_location)
         if not os.path.isdir(output_tile_directory):
             os.makedirs(output_tile_directory)
         if not os.path.isdir(input_tile_directory):
             os.makedirs(input_tile_directory)
-        self.initialize_color_model(self.ref_image_filename,
-                                    self.ref_image_annotated_filename)
-        self.process_orthomosaic(filename_orthomosaic)
 
     def initialize_color_model(self,
                                ref_image_filename,
